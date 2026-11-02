@@ -1,0 +1,14 @@
+{
+  "name": "do-vui-live",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Đố vui tiếng Việt cho TikTok LIVE: câu hỏi từ Google Sheet, dự phòng bằng Gemini",
+  "scripts": { "start": "node server.mjs", "test": "node test.mjs" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "msedge-tts": "2.1.1",
+    "tiktok-live-connector": "2.5.0",
+    "ws": "8.18.0"
+  }
+}

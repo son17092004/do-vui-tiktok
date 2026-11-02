@@ -1,0 +1,10 @@
+node_modules/
+data/
+.env
+.env.*
+!.env.example
+assets/*
+!assets/README.txt
+*.log
+.DS_Store
+Thumbs.db

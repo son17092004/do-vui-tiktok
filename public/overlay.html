@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay · Đố Vui LIVE</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800;900&family=Lora:ital,wght@0,600;0,700;1,500&display=swap">
+<style>
+/* 1080×1920 stage scaled to the window, for TikTok LIVE Studio window capture or an OBS browser source.
+   TikTok draws its own UI over the top ~200px and the bottom ~650px, so everything that matters sits in y 200–1250. */
+:root{
+  --bg1:#120a2e; --bg2:#2a0f4a; --bg3:#4a1240;
+  --fg:#fff7ea; --muted:#cbb9e6; --gold:#ffc94a; --gold2:#ffe39a; --red:#ff4d6d; --green:#3ee08f; --cyan:#5ce1ff;
+  --card:rgba(20,10,46,.82); --line:rgba(255,201,74,.55);
+  --display:"Be Vietnam Pro",system-ui,sans-serif; --serif:"Lora",Georgia,serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--display);color:var(--fg)}
+#stage{position:absolute;left:50%;top:50%;width:1080px;height:1920px;transform-origin:center;overflow:hidden;
+  background:radial-gradient(120% 70% at 50% 18%,var(--bg3) 0%,var(--bg2) 38%,var(--bg1) 75%)}
+#bgImg{position:absolute;inset:0;background-size:cover;background-position:center;display:none}
+#bgImg.on{display:block}
+#bgImg.on::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,5,30,.55),rgba(10,5,30,.35) 40%,rgba(10,5,30,.7))}
+/* stage lights + a soft drum pattern, drawn without image files */
+.beam{position:absolute;top:-200px;width:340px;height:1500px;background:linear-gradient(180deg,rgba(255,220,140,.22),rgba(255,220,140,0) 75%);
+  filter:blur(6px);transform-origin:top center;animation:sweep 9s ease-in-out infinite alternate;mix-blend-mode:screen}
+.beam.l{left:60px;--a:-28deg;--b:-8deg}.beam.r{right:60px;--a:28deg;--b:8deg;animation-delay:-4.5s}
+.beam.c{left:370px;--a:-6deg;--b:6deg;opacity:.6;animation-duration:12s;background:linear-gradient(180deg,rgba(130,200,255,.18),rgba(130,200,255,0) 70%)}
+@keyframes sweep{from{transform:rotate(var(--a))}to{transform:rotate(var(--b))}}
+#drum{position:absolute;left:50%;top:640px;width:1500px;height:1500px;margin-left:-750px;opacity:.07;animation:spin 120s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ui{position:absolute;z-index:3}
+
+/* header */
+#head{top:200px;left:0;right:0;text-align:center}
+#logo{max-height:120px;max-width:620px;display:none;margin:0 auto}
+#title{font-weight:900;font-size:104px;line-height:1.08;letter-spacing:.03em;max-width:940px;margin:0 auto;text-wrap:balance;
+  background:linear-gradient(180deg,#fff6d0 10%,var(--gold) 55%,#e08a1e 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 6px 0 #6b1d5c) drop-shadow(0 0 30px rgba(255,190,80,.45))}
+#subtitle{margin-top:10px;font-size:30px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+
+/* round strip */
+#strip{top:372px;left:70px;right:70px;height:96px;display:flex;align-items:center;gap:16px}
+.chip{height:62px;padding:0 26px;border-radius:999px;display:flex;align-items:center;gap:10px;font-size:30px;font-weight:800;
+  background:var(--card);border:2px solid var(--line);white-space:nowrap}
+#qno{background:linear-gradient(180deg,#ffd76a,#f0a52a);color:#3a1600;border:none}
+#topic{max-width:420px;overflow:hidden;text-overflow:ellipsis}
+#stars{color:var(--gold);letter-spacing:4px}
+#ai{display:none;font-size:22px;color:var(--cyan);border-color:rgba(92,225,255,.6)}
+#timer{margin-left:auto;position:relative;width:110px;height:110px;flex:none}
+#timer svg{position:absolute;inset:0;transform:rotate(-90deg)}
+#timer circle{fill:none;stroke-width:10}
+#timer .track{stroke:rgba(255,255,255,.14)}
+#timer .bar{stroke:var(--green);stroke-linecap:round;transition:stroke .3s}
+#timer.warn .bar{stroke:var(--gold)}#timer.hot .bar{stroke:var(--red)}
+#timer b{position:absolute;inset:0;display:grid;place-items:center;font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;background:var(--card);border-radius:50%;margin:12px}
+#timer.hot b{animation:beat .5s infinite}
+@keyframes beat{50%{transform:scale(1.12)}}
+
+/* question card: flips to the answer */
+#card{top:490px;left:60px;right:60px;height:430px;perspective:2000px}
+.face{position:absolute;inset:0;border-radius:40px;padding:44px 54px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  backface-visibility:hidden;transition:transform .8s cubic-bezier(.3,1.3,.5,1)}
+#front{background:linear-gradient(180deg,rgba(40,22,90,.94),rgba(22,10,52,.94));border:3px solid var(--line);
+  box-shadow:0 0 0 8px rgba(0,0,0,.25),0 30px 80px rgba(0,0,0,.5),inset 0 0 80px rgba(255,201,74,.08)}
+#back{transform:rotateY(180deg);background:radial-gradient(ellipse at 50% 0%,#2e8c5c,#0f3d2a);border:3px solid #7dffc0;box-shadow:0 0 70px rgba(62,224,143,.45)}
+#card.flip #front{transform:rotateY(-180deg)}#card.flip #back{transform:rotateY(0)}
+#qtext{font-family:var(--serif);font-weight:700;font-size:64px;line-height:1.28;text-wrap:balance}
+#back small{font-size:30px;font-weight:800;letter-spacing:.18em;color:#bfffe0}
+#answer{margin-top:14px;font-weight:900;font-size:96px;line-height:1.1;color:#fff;text-shadow:0 4px 0 #0b2c1d}
+#answerMeta{margin-top:18px;font-size:30px;color:#d6ffe9}
+#card.idle #qtext{font-family:var(--display);font-size:52px}
+
+/* hint */
+#hint{top:940px;left:90px;right:90px;text-align:center;font-size:40px;font-weight:700;color:var(--gold2);opacity:0;transform:translateY(10px);transition:.5s}
+#hint.show{opacity:1;transform:none}
+#hint span{letter-spacing:.08em;font-variant-numeric:tabular-nums}
+
+/* fastest answers */
+#podium{top:1010px;left:90px;right:90px;display:grid;gap:12px}
+.win{height:70px;border-radius:20px;display:flex;align-items:center;gap:16px;padding:0 22px;font-size:34px;font-weight:800;
+  background:var(--card);border:2px solid var(--line);animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+.win .medal{font-size:40px}.win .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.win .pt{color:var(--green);font-variant-numeric:tabular-nums}.win .x{font-size:24px;color:#3a1600;background:var(--gold);border-radius:999px;padding:2px 12px}
+.win img{width:48px;height:48px;border-radius:50%;object-fit:cover}
+.win.more{height:52px;font-size:26px;justify-content:center;color:var(--muted);font-weight:600}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+
+/* leaderboard */
+#board{top:470px;left:60px;right:60px;padding:34px 40px;border-radius:40px;background:linear-gradient(180deg,rgba(40,22,90,.96),rgba(22,10,52,.96));
+  border:3px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.5);opacity:0;transform:scale(.92);transition:.5s;pointer-events:none;z-index:6}
+#board.show{opacity:1;transform:none}
+#board h2{margin:0 0 18px;text-align:center;font-size:52px;font-weight:900;color:var(--gold)}
+#board ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+#board li{display:flex;align-items:center;gap:16px;height:64px;padding:0 20px;border-radius:18px;background:rgba(255,255,255,.06);font-size:32px;font-weight:700}
+#board li:nth-child(1){background:linear-gradient(90deg,rgba(255,201,74,.38),rgba(255,201,74,.08));font-size:38px;height:76px}
+#board li:nth-child(2){background:linear-gradient(90deg,rgba(220,220,240,.28),rgba(220,220,240,.06))}
+#board li:nth-child(3){background:linear-gradient(90deg,rgba(224,140,80,.3),rgba(224,140,80,.06))}
+#board .rk{width:52px;text-align:center;color:var(--gold2);font-variant-numeric:tabular-nums}
+#board .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#board .sc{color:var(--gold2);font-variant-numeric:tabular-nums}
+#board img{width:46px;height:46px;border-radius:50%;object-fit:cover}
+#board .empty{justify-content:center;color:var(--muted);background:none}
+#board .bst{font-size:22px;background:var(--gold);color:#3a1600;border-radius:999px;padding:2px 10px}
+
+/* side info (lower area: may sit under TikTok's comments, so nothing critical here) */
+#guesses{top:1290px;left:40px;right:40px;height:150px;overflow:hidden;display:flex;flex-wrap:wrap-reverse;gap:10px;align-content:flex-start;justify-content:center}
+.gs{font-size:26px;padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.1);color:#e9defa;animation:fadeup 4s forwards;white-space:nowrap;max-width:460px;overflow:hidden;text-overflow:ellipsis}
+.gs b{color:var(--muted);font-weight:600}
+.gs.chat{background:rgba(255,255,255,.92);color:#1b0b33;font-weight:700;animation-duration:6s;border:3px solid var(--tc,#fff)}
+.gs.chat b{color:#5a3d8a}
+.gs.nudge{background:rgba(255,201,74,.22);color:var(--gold2);font-weight:700;max-width:1000px;white-space:normal;text-align:center}
+.say{position:absolute;z-index:7;max-width:330px;transform:translate(-50%,-100%);background:#fff;color:#1b0b33;font-size:25px;font-weight:700;line-height:1.22;
+  padding:8px 16px 10px;border-radius:20px;border:4px solid var(--tc,#fff);box-shadow:0 8px 24px rgba(0,0,0,.45);overflow-wrap:anywhere;text-align:left;
+  animation:sayIn .35s cubic-bezier(.2,1.6,.4,1),sayOut .4s 5.6s forwards}
+.say small{display:block;font-size:18px;font-weight:800;color:var(--tc,#5a3d8a);filter:brightness(.8)}
+.say::after{content:"";position:absolute;left:50%;bottom:-14px;margin-left:-10px;border:10px solid transparent;border-top-color:var(--tc,#fff);border-bottom:0}
+.say.below{transform:translate(-50%,0)}.say.below::after{bottom:auto;top:-14px;border-top:0;border-bottom:10px solid var(--tc,#fff)}
+@keyframes sayIn{from{opacity:0;scale:.5}}@keyframes sayOut{to{opacity:0;scale:.8}}
+@keyframes fadeup{0%{opacity:0;transform:translateY(10px)}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+#how{top:1460px;left:0;right:0;text-align:center;font-size:30px;font-weight:700;color:var(--muted)}
+#how b{color:var(--gold2)}
+#host{position:absolute;z-index:2;right:10px;bottom:430px;max-height:420px;display:none;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6))}
+
+/* gift banner */
+#gift{top:200px;left:60px;right:60px;z-index:8;padding:28px 34px;border-radius:32px;text-align:center;
+  background:radial-gradient(ellipse at 50% 0%,#a2236a,#3b0b3f);border:3px solid var(--gold2);box-shadow:0 0 70px rgba(255,120,200,.5);
+  opacity:0;transform:translateY(-30px) scale(.9);transition:.45s cubic-bezier(.2,1.4,.4,1)}
+#gift.show{opacity:1;transform:none}
+#gift .who{font-size:52px;font-weight:900;color:var(--gold2)}#gift .what{font-size:34px;margin-top:6px}
+#gift .bst{display:inline-block;margin-top:12px;font-size:30px;font-weight:900;color:#3a1600;background:var(--gold);border-radius:999px;padding:6px 22px}
+#gift img{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--gold2);margin-bottom:8px}
+
+#fx{position:absolute;inset:0;z-index:7;pointer-events:none}
+#unmute{position:absolute;z-index:9;left:50%;top:1600px;transform:translateX(-50%);font:800 38px var(--display);padding:24px 48px;border-radius:24px;
+  border:3px solid var(--gold2);background:#7a1fa2;color:#fff;cursor:pointer;white-space:nowrap}
+#conn{position:absolute;z-index:9;right:16px;bottom:12px;font-size:20px;color:var(--muted);opacity:.7}
+/* ---- team ladder mode: smaller question card, staircases from y 760 to 1262 ---- */
+.teamOnly{display:none}
+#stage.team .teamOnly{display:flex}
+#stage [hidden]{display:none!important}
+#stage.team #stars{display:none}#stage.team #topic{max-width:250px}
+#stage.team #podium,#stage.team #board{display:none}
+#stage.team #card{top:470px;height:205px}
+#stage.team .face{padding:24px 40px;border-radius:30px}
+#stage.team #answer{font-size:72px!important;margin-top:4px}
+#stage.team #back small{font-size:24px}#stage.team #answerMeta{font-size:26px;margin-top:8px}
+#stage.team #hint{top:684px;font-size:32px}
+#tcount{color:var(--green)}
+#clock{font-variant-numeric:tabular-nums}
+#stairs{top:738px;left:24px;right:24px;height:392px;gap:14px}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;border-radius:24px;background:rgba(10,5,30,.45);border:2px solid color-mix(in srgb,var(--tc) 60%,transparent);overflow:hidden}
+.col.lead{box-shadow:0 0 0 3px var(--tc),0 0 40px color-mix(in srgb,var(--tc) 50%,transparent)}
+.thead{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 55%,transparent),color-mix(in srgb,var(--tc) 20%,transparent))}
+.thead .ic{width:40px;height:40px;border-radius:50%;flex:none;background:var(--tc);display:grid;place-items:center;font-size:26px;font-weight:900;color:#1b0b33;overflow:hidden}
+.thead .ic img{width:100%;height:100%;object-fit:contain}
+.thead .nm{font-size:30px;font-weight:900;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thead .meta{text-align:right;font-size:20px;line-height:1.15;color:#fff;font-weight:700;font-variant-numeric:tabular-nums}
+.thead .meta b{font-size:26px;display:block}
+.ladder{position:relative;flex:1}
+.stp{position:absolute;left:50%;transform:translateX(-50%);border-radius:8px 8px 4px 4px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 70%,#fff 10%),color-mix(in srgb,var(--tc) 35%,#000 30%));box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.stp.img{background-size:100% 100%;background-color:transparent;box-shadow:none}
+.stp.top{box-shadow:0 0 18px var(--tc)}
+.goal{position:absolute;left:50%;transform:translate(-50%,-100%);font-size:40px;line-height:1}
+.goal img{height:56px;display:block}
+.avg{position:absolute;left:4px;transform:translateY(-50%);font-size:18px;font-weight:900;color:#1b0b33;background:var(--tc);border-radius:0 999px 999px 0;padding:2px 10px 2px 6px;transition:top .8s cubic-bezier(.3,1.3,.5,1);z-index:3;white-space:nowrap}
+.pl{position:absolute;border-radius:50%;border:3px solid var(--tc);background:#1b0b33;display:grid;place-items:center;overflow:hidden;font-weight:900;color:#fff;
+  transition:left .7s cubic-bezier(.3,1.4,.5,1),top .7s cubic-bezier(.3,1.4,.5,1);z-index:2;box-shadow:0 3px 8px rgba(0,0,0,.5)}
+.pl img{width:100%;height:100%;object-fit:cover}
+.pl.up{animation:up 1.2s}.pl.down{animation:down .9s}
+@keyframes up{0%,100%{box-shadow:0 3px 8px rgba(0,0,0,.5)}30%{box-shadow:0 0 0 6px var(--green),0 0 30px var(--green);transform:scale(1.35)}}
+@keyframes down{0%,100%{transform:none}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}30%{box-shadow:0 0 0 6px var(--red)}}
+.more{position:absolute;transform:translate(-50%,-50%);font-size:18px;font-weight:900;background:#fff;color:#1b0b33;border-radius:999px;padding:1px 8px;z-index:3}
+/* audience: commenters who aren't in a team, two rows of seats */
+#stands{top:1140px;left:24px;right:24px;height:150px;display:block;border-radius:22px;
+  background:linear-gradient(180deg,transparent 30px,rgba(255,255,255,.05) 30px,rgba(255,255,255,.05) 82px,transparent 82px,transparent 88px,rgba(255,255,255,.07) 88px,rgba(255,255,255,.07) 140px,transparent 140px)}
+#audHead{position:absolute;left:14px;top:2px;font-size:21px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.au{position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:#2a1a50;overflow:hidden;
+  display:grid;place-items:center;font-size:19px;font-weight:800;color:#e9defa;animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
+.au img{width:100%;height:100%;object-fit:cover}
+.au.more{border-style:dashed;font-size:16px;background:rgba(255,255,255,.08)}
+#matchEnd{top:470px;left:60px;right:60px;padding:34px 40px;border-radius:40px;z-index:6;text-align:center;
+  background:linear-gradient(180deg,rgba(40,22,90,.97),rgba(22,10,52,.97));border:3px solid var(--gold);box-shadow:0 30px 80px rgba(0,0,0,.6);
+  opacity:0;transform:scale(.9);transition:.5s;pointer-events:none}
+#matchEnd.show{opacity:1;transform:none}
+#matchEnd h2{margin:0;font-size:60px;font-weight:900;color:var(--gold)}
+#matchEnd .sub{font-size:28px;color:var(--muted);margin:6px 0 20px}
+#meRows{display:grid;gap:12px}
+.mer{display:flex;align-items:center;gap:16px;height:76px;padding:0 22px;border-radius:20px;background:color-mix(in srgb,var(--tc) 22%,transparent);border:2px solid var(--tc);font-size:34px;font-weight:800}
+.mer .rk{width:50px}.mer .nm{flex:1;text-align:left}.mer .v{font-variant-numeric:tabular-nums}.mer small{font-size:22px;color:var(--muted);font-weight:600}
+#meMvp{margin-top:20px;font-size:32px;font-weight:800;color:var(--gold2)}
+#meNext{margin-top:14px;font-size:28px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.beam,#drum{animation:none}.face,#board,#gift,#hint,#matchEnd{transition:none}.pl{transition:none;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgImg"></div>
+  <div class="beam l"></div><div class="beam c"></div><div class="beam r"></div>
+  <svg id="drum" viewBox="-100 -100 200 200" aria-hidden="true">
+    <g fill="none" stroke="#ffd36a" stroke-width=".6">
+      <circle r="98"/><circle r="90"/><circle r="74"/><circle r="58"/><circle r="40"/><circle r="22"/><circle r="12"/>
+    </g>
+    <g fill="#ffd36a" id="rays"></g>
+    <g fill="none" stroke="#ffd36a" stroke-width=".5" id="ticks"></g>
+  </svg>
+  <img id="host" alt="">
+
+  <div id="head" class="ui"><img id="logo" alt=""><div id="title">ĐỐ VUI</div><div id="subtitle">Bình luận đáp án · ai nhanh nhất được nhiều điểm</div></div>
+
+  <div id="strip" class="ui">
+    <div class="chip" id="qno">Câu –</div>
+    <div class="chip" id="topic">Đố vui</div>
+    <div class="chip" id="stars">★</div>
+    <div class="chip" id="ai">✨ AI</div>
+    <div class="chip teamOnly" id="clock">⏳ –</div>
+    <div class="chip teamOnly" id="tcount" hidden>✓ 0</div>
+    <div id="timer"><svg viewBox="0 0 110 110"><circle class="track" cx="55" cy="55" r="48"/><circle class="bar" cx="55" cy="55" r="48" stroke-dasharray="301.6" stroke-dashoffset="0"/></svg><b id="sec">–</b></div>
+  </div>
+
+  <div id="card" class="ui idle">
+    <div class="face" id="front"><div id="qtext">Sắp bắt đầu…</div></div>
+    <div class="face" id="back"><small>ĐÁP ÁN</small><div id="answer"></div><div id="answerMeta"></div></div>
+  </div>
+  <div id="hint" class="ui">💡 Gợi ý: <span id="hintText"></span></div>
+  <div id="podium" class="ui"></div>
+  <div id="board" class="ui"><h2>🏆 BẢNG VÀNG HÔM NAY</h2><ol id="boardList"></ol></div>
+  <div id="stairs" class="ui teamOnly"></div>
+  <div id="stands" class="ui teamOnly"><div id="audHead">👀 KHÁN ĐÀI</div></div>
+  <div id="matchEnd" class="ui"><h2 id="meTitle"></h2><div class="sub" id="meSub"></div><div id="meRows"></div><div id="meMvp"></div><div id="meNext"></div></div>
+  <div id="guesses" class="ui"></div>
+  <div id="how" class="ui">💬 Gõ <b>đáp án</b> vào bình luận · 🎁 Tặng quà <b>nhân điểm 10 phút</b></div>
+  <div id="gift" class="ui"><img id="giftAv" alt="" hidden><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="bst" id="giftBoost" hidden></div></div>
+  <canvas id="fx" width="1080" height="1920"></canvas>
+  <button id="unmute">🔊 Bấm để bật âm thanh</button>
+  <div id="conn">đang kết nối…</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+function fit(){ const s = Math.min(innerWidth / 1080, innerHeight / 1920); stage.style.transform = `translate(-50%,-50%) scale(${s})`; }
+addEventListener('resize', fit); fit();
+
+// drum-face ornament: rays + ticks generated once
+(() => { const rays = $('rays'), ticks = $('ticks'); const ns = 'http://www.w3.org/2000/svg';
+  for (let i = 0; i < 14; i++){ const p = document.createElementNS(ns, 'path'); p.setAttribute('d', 'M0 -38 L3 -14 L0 -20 L-3 -14Z'); p.setAttribute('transform', `rotate(${i * 360 / 14})`); rays.append(p); }
+  for (let i = 0; i < 48; i++){ const l = document.createElementNS(ns, 'path'); l.setAttribute('d', 'M0 -74 L0 -88'); l.setAttribute('transform', `rotate(${i * 7.5})`); ticks.append(l); } })();
+
+/* =========================== state =========================== */
+let settings = {}, clockOff = 0, endsAt = 0, roundLen = 25000, phase = 'idle', lastSec = -1;
+const now = () => Date.now() + clockOff;
+const setClock = serverNow => { clockOff = serverNow - Date.now(); };
+
+const isTeam = () => settings.mode === 'team';
+function fitQuestion(text){
+  const n = text.length, el = $('qtext');
+  el.style.fontSize = (isTeam() ? (n < 34 ? 58 : n < 60 ? 50 : n < 95 ? 42 : n < 140 ? 36 : 32) : (n < 34 ? 76 : n < 60 ? 66 : n < 95 ? 56 : n < 140 ? 48 : 42)) + 'px';
+  el.textContent = text;
+}
+function showQuestion(m){
+  phase = 'question';
+  $('card').classList.remove('flip', 'idle'); $('board').classList.remove('show');
+  $('qno').textContent = 'Câu ' + m.no;
+  $('topic').textContent = m.topic || 'Đố vui';
+  $('stars').textContent = '★'.repeat(m.level || 1) + '☆'.repeat(3 - (m.level || 1));
+  $('ai').style.display = m.source === 'gemini' ? '' : 'none';
+  $('qtext').style.whiteSpace = ''; fitQuestion(m.q);
+  $('podium').replaceChildren();
+  setHint(m.hint); setTcount({ answered: 0, correct: 0 });
+  endsAt = m.endsAt; roundLen = Math.max(1000, m.endsAt - now()); lastSec = -1;
+}
+function setHint(h){ $('hintText').textContent = h || ''; $('hint').classList.toggle('show', !!h); }
+function idle(text){
+  phase = 'idle'; endsAt = 0;
+  $('card').classList.remove('flip'); $('card').classList.add('idle'); $('board').classList.remove('show'); setHint('');
+  $('qno').textContent = 'Câu –'; $('topic').textContent = 'Đố vui'; $('stars').textContent = '★'; $('ai').style.display = 'none';
+  const teamText = () => 'Gõ “tham gia” hoặc tên đội:\n' + (team.teams.length ? team.teams.map(t => t.name).join(' · ') : '…');
+  fitQuestion(text || (isTeam() ? teamText() : 'Sắp bắt đầu…\nGõ đáp án vào bình luận để ghi điểm!'));
+  $('qtext').style.fontSize = isTeam() ? '44px' : '52px'; $('qtext').style.whiteSpace = 'pre-line'; $('tcount').hidden = true;
+}
+const MEDALS = ['🥇', '🥈', '🥉'];
+function addWinner(m, quiet){
+  const pod = $('podium');
+  if (m.rank < 3){
+    const d = document.createElement('div'); d.className = 'win';
+    const md = document.createElement('span'); md.className = 'medal'; md.textContent = MEDALS[m.rank];
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = m.name;
+    const pt = document.createElement('span'); pt.className = 'pt'; pt.textContent = '+' + m.points;
+    d.append(md); if (m.avatar){ const im = new Image(); im.referrerPolicy = 'no-referrer'; im.src = m.avatar; im.onerror = () => im.remove(); d.append(im); }
+    d.append(nm);
+    if (m.x > 1){ const x = document.createElement('span'); x.className = 'x'; x.textContent = '×' + m.x; d.append(x); }
+    d.append(pt); pod.append(d);
+  } else {
+    let more = pod.querySelector('.more');
+    if (!more){ more = document.createElement('div'); more.className = 'win more'; more.dataset.n = 0; pod.append(more); }
+    more.dataset.n = +more.dataset.n + 1; more.textContent = `+ ${more.dataset.n} người khác cũng trả lời đúng`;
+  }
+  if (quiet) return;
+  if (m.rank === 0){ ding(true); burst(540, 1040, 40); } else ding(false);
+}
+function reveal(m, quiet){
+  phase = 'reveal'; endsAt = 0;
+  $('answer').textContent = m.a;
+  $('answer').style.fontSize = (m.a.length < 10 ? 110 : m.a.length < 18 ? 84 : 64) + 'px';
+  $('answerMeta').textContent = m.totalCorrect ? `${m.totalCorrect} người trả lời đúng / ${m.tried} người chơi` : `Chưa ai trả lời đúng · ${m.tried} người đã thử`;
+  $('card').classList.add('flip'); setHint('');
+  if (!quiet){ chime(); if (m.totalCorrect) confetti(120); }
+}
+function showBoard(list){
+  phase = 'board';
+  const ol = $('boardList'); ol.replaceChildren();
+  if (!list.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Chưa có ai ghi điểm. Trả lời câu tiếp theo nhé!'; ol.append(li); }
+  list.forEach((p, i) => {
+    const li = document.createElement('li');
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i < 3 ? MEDALS[i] : i + 1;
+    li.append(rk);
+    if (p.avatar){ const im = new Image(); im.referrerPolicy = 'no-referrer'; im.src = p.avatar; im.onerror = () => im.remove(); li.append(im); }
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name; li.append(nm);
+    if (p.boost){ const b = document.createElement('span'); b.className = 'bst'; b.textContent = '🎁 ×'; li.append(b); }
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = p.score; li.append(sc);
+    ol.append(li);
+  });
+  $('board').classList.add('show');
+}
+function guess(m, cls = '', ms = 4000){
+  const g = $('guesses'), d = document.createElement('div'); d.className = 'gs ' + cls;
+  if (m.name){ const b = document.createElement('b'); b.textContent = m.name + ': '; d.append(b); }
+  d.append(m.text); if (m.color) d.style.setProperty('--tc', m.color);
+  g.append(d); while (g.children.length > 8) g.firstChild.remove();
+  setTimeout(() => d.remove(), ms);
+}
+// "/chat …": a speech bubble over the player's avatar when it's on screen, otherwise a line in the feed.
+function chatBubble(m){
+  const el = isTeam() ? $('pl_' + m.uid) || $('au_' + m.uid) : null;
+  if (!el){ guess({ name: (m.team ? `[${m.team.name}] ` : '') + m.name, text: m.text, color: m.team?.color }, 'chat', 6000); return; }
+  const sr = stage.getBoundingClientRect(), k = sr.width / 1080, r = el.getBoundingClientRect();
+  const x = Math.max(180, Math.min(900, (r.left + r.width / 2 - sr.left) / k)), top = (r.top - sr.top) / k, bottom = (r.bottom - sr.top) / k;
+  const b = document.createElement('div'); b.className = 'say'; b.style.setProperty('--tc', m.team?.color || '#fff');
+  const s = document.createElement('small'); s.textContent = m.name; b.append(s, m.text);
+  b.style.left = x + 'px';
+  if (top < 900){ b.classList.add('below'); b.style.top = (bottom + 14) + 'px'; } else b.style.top = (top - 14) + 'px';   // near the top: hang below so it doesn't cover the question
+  stage.append(b); setTimeout(() => b.remove(), 6100);
+  const all = stage.querySelectorAll('.say'); if (all.length > 4) all[0].remove();
+}
+let giftHide = null;
+function showGift(m){
+  $('giftWho').textContent = m.name;
+  $('giftWhat').textContent = `đã tặng ${m.giftName}${m.count > 1 ? ' ×' + m.count : ''}`;
+  const b = $('giftBoost'); b.hidden = !m.boost; b.textContent = `⚡ Điểm ×${m.boost} trong 10 phút`;
+  const av = $('giftAv'); av.hidden = !m.avatar; if (m.avatar){ av.referrerPolicy = 'no-referrer'; av.src = m.avatar; }
+  const el = $('gift'); el.classList.add('show'); clearTimeout(giftHide); giftHide = setTimeout(() => el.classList.remove('show'), m.tier >= 3 ? 7000 : 4500);
+  fanfare(m.tier); confetti(m.tier >= 3 ? 160 : m.tier >= 2 ? 70 : 25);
+}
+function applySettings(){
+  const title = settings.title || 'ĐỐ VUI', n = title.length;
+  $('title').textContent = title;
+  $('title').style.fontSize = (n <= 10 ? 104 : n <= 16 ? 84 : n <= 24 ? 68 : 62) + 'px';   // long names wrap to two lines
+  $('subtitle').style.fontSize = n > 24 ? '25px' : '';
+  const DEFAULT_SUB = 'Bình luận đáp án · ai nhanh nhất được nhiều điểm';           // the solo-mode default makes no sense in team mode
+  $('subtitle').textContent = isTeam() && (!settings.subtitle || settings.subtitle === DEFAULT_SUB) ? 'Chọn đội · trả lời đúng để leo lên đỉnh' : settings.subtitle || '';
+  $('guesses').style.display = settings.showGuesses === false ? 'none' : '';
+  stage.classList.toggle('team', isTeam());
+  $('how').innerHTML = isTeam() ? '💬 Gõ <b>tham gia</b> hoặc <b>tên đội</b> · đúng <b>+1 bậc</b>' + (settings.wrongStepDown ? ' · sai <b>−1 bậc</b>' : '') + (settings.chatEnabled ? ' · <b>/chat</b> để nói' : '')
+    : '💬 Gõ <b>đáp án</b> vào bình luận' + (settings.giftBoost ? ' · 🎁 Tặng quà <b>nhân điểm 10 phút</b>' : '');
+  if (musicGain) musicGain.gain.value = settings.music ? (settings.musicVol ?? 35) / 100 : 0;
+}
+let assets = { music: [] };
+function applyAssets(a){
+  assets = a || { music: [] };
+  if (AC && !musicEl) nextTrack();                              // audio started before the asset list arrived (OBS autostart)
+  if (a.bg){ $('bgImg').style.backgroundImage = `url("${a.bg}")`; $('bgImg').classList.add('on'); }
+  if (a.logo){ $('logo').src = a.logo; $('logo').style.display = 'block'; $('title').style.display = 'none'; }
+  if (a.host){ $('host').src = a.host; $('host').style.display = 'block'; }
+  if (team.teams.length) renderStairs();
+}
+
+/* =========================== team ladder =========================== */
+// Columns are rebuilt on a full update; players are absolutely placed inside their column's ladder and animate between steps.
+const team = { steps: 15, teams: [], players: new Map(), endsAt: 0, startedAt: 0 };
+const LADDER_H = 392 - 54;                          // #stairs height minus the team header
+function setTeams(m){
+  Object.assign(team, { steps: m.steps, teams: m.teams, endsAt: m.endsAt, startedAt: m.startedAt });
+  team.players = new Map(m.players.map(p => [p.uid, p]));
+  renderStairs();
+  if (phase === 'idle') idle();
+}
+const stepY = s => LADDER_H - 16 - s * ((LADDER_H - 70) / team.steps);       // feet position of step s (0 = floor)
+function stepW(s, colW){ return colW * (.94 - .5 * s / team.steps); }
+function renderStairs(){
+  const box = $('stairs'); box.replaceChildren();
+  const colW = (1032 - 14 * (team.teams.length - 1)) / Math.max(1, team.teams.length);
+  for (const t of team.teams){
+    const col = document.createElement('div'); col.className = 'col'; col.id = 'col' + t.id; col.style.setProperty('--tc', t.color);
+    const head = document.createElement('div'); head.className = 'thead';
+    const ic = document.createElement('div'); ic.className = 'ic';
+    if (assets.team?.[t.id]){ const im = new Image(); im.src = assets.team[t.id]; ic.append(im); } else ic.textContent = t.name[0] || t.id + 1;
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = t.name;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.id = 'meta' + t.id;
+    head.append(ic, nm, meta);
+    const lad = document.createElement('div'); lad.className = 'ladder'; lad.id = 'lad' + t.id;
+    const h = (LADDER_H - 70) / team.steps;
+    for (let s = 1; s <= team.steps; s++){
+      const st = document.createElement('div'); st.className = 'stp' + (s === team.steps ? ' top' : '');
+      if (assets.step?.[t.id]){ st.classList.add('img'); st.style.backgroundImage = `url("${assets.step[t.id]}")`; }
+      st.style.top = stepY(s) + 'px'; st.style.height = Math.max(6, h - 4) + 'px'; st.style.width = stepW(s, colW) + 'px';
+      lad.append(st);
+    }
+    const goal = document.createElement('div'); goal.className = 'goal'; goal.style.top = (stepY(team.steps) - 2) + 'px';
+    if (assets.goal){ const im = new Image(); im.src = assets.goal; goal.append(im); } else goal.textContent = '🏆';
+    const avg = document.createElement('div'); avg.className = 'avg'; avg.id = 'avg' + t.id;
+    lad.append(goal, avg);
+    col.append(head, lad); box.append(col);
+  }
+  placePlayers(); updateHeads();
+}
+function avatarEl(p){
+  const el = document.createElement('div'); el.className = 'pl'; el.id = 'pl_' + p.uid; el.title = p.name;
+  const t = team.teams[p.team]; el.style.setProperty('--tc', t?.color || '#fff');
+  const src = p.avatar || assets.char?.[p.team];
+  if (src){ const im = new Image(); im.referrerPolicy = 'no-referrer'; im.src = src; im.onerror = () => { im.remove(); el.textContent = (p.name || '?')[0].toUpperCase(); }; el.append(im); }
+  else el.textContent = (p.name || '?')[0].toUpperCase();
+  return el;
+}
+// Players on the same step stand side by side, squeezing together when crowded; past 12 a "+n" badge stands in for the rest.
+function placePlayers(){
+  const colW = (1032 - 14 * (team.teams.length - 1)) / Math.max(1, team.teams.length);
+  const size = Math.max(26, Math.min(44, (LADDER_H - 70) / team.steps * 1.25));
+  document.querySelectorAll('.more').forEach(e => e.remove());
+  const groups = new Map();
+  for (const p of team.players.values()){ if (!team.teams[p.team]) continue; const k = p.team + ':' + p.step; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
+  const seen = new Set();
+  for (const [k, list] of groups){
+    const [ti, s] = k.split(':').map(Number), lad = $('lad' + ti); if (!lad) continue;
+    const shown = list.slice(0, 12), w = stepW(Math.max(s, 1), colW) - size, cx = colW / 2;
+    const gap = shown.length > 1 ? Math.min(size * .9, w / (shown.length - 1)) : 0;
+    shown.forEach((p, i) => {
+      let el = $('pl_' + p.uid);
+      if (!el || el.parentNode !== lad){ el?.remove(); el = avatarEl(p); el.style.left = (cx - size / 2) + 'px'; el.style.top = (stepY(0) - size) + 'px'; lad.append(el); el.offsetWidth; }
+      el.style.width = el.style.height = size + 'px'; el.style.fontSize = size * .45 + 'px';
+      el.style.left = (cx - size / 2 + (i - (shown.length - 1) / 2) * gap) + 'px';
+      el.style.top = (stepY(s) - size + 2) + 'px'; el.style.zIndex = 2 + i;
+      seen.add(el.id);
+    });
+    if (list.length > shown.length){ const m = document.createElement('div'); m.className = 'more'; m.textContent = '+' + (list.length - shown.length);
+      m.style.left = (cx + (shown.length - 1) / 2 * gap + size * .6) + 'px'; m.style.top = (stepY(s) - size / 2) + 'px'; lad.append(m); }
+  }
+  document.querySelectorAll('.pl').forEach(el => { if (!seen.has(el.id)) el.remove(); });
+}
+function updateHeads(stats){
+  if (stats) team.teams = stats;
+  const lead = [...team.teams].filter(t => t.active).sort((a, b) => b.avg - a.avg)[0];
+  for (const t of team.teams){
+    const meta = $('meta' + t.id); if (!meta) continue;
+    meta.replaceChildren(); const b = document.createElement('b'); b.textContent = (lead && lead.id === t.id && t.avg > 0 ? '👑 ' : '') + t.avg.toFixed(1);
+    meta.append(b, `👥 ${t.members}`);
+    $('col' + t.id).classList.toggle('lead', !!lead && lead.id === t.id && t.avg > 0);
+    const avg = $('avg' + t.id); avg.style.top = stepY(t.avg) + 'px'; avg.textContent = 'TB ' + t.avg.toFixed(1); avg.hidden = !t.active;
+  }
+}
+function onJoin(m){
+  team.players.set(m.p.uid, m.p); updateHeads(m.teams); placePlayers();
+  const t = team.teams[m.p.team]; if (t) guess({ name: m.p.name, text: (m.switched ? 'chuyển sang đội ' : 'vào đội ') + t.name });
+}
+function onClimb(m){
+  for (const mv of m.moves){ const p = team.players.get(mv.uid); if (p) p.step = mv.to; }
+  placePlayers(); updateHeads(m.teams);
+  for (const mv of m.moves){ const el = $('pl_' + mv.uid); if (!el || mv.to === mv.from) continue;
+    const cls = mv.to > mv.from ? 'up' : 'down'; el.classList.remove('up', 'down'); el.offsetWidth; el.classList.add(cls); }
+  if (m.moves.some(x => x.to > x.from)) tone(660, 'triangle', .15, .25);
+}
+function setTcount(c){ const el = $('tcount'); el.hidden = !isTeam(); el.textContent = `✓ ${c.correct} / ${c.answered}`; }
+let meTimer = null;
+function showMatchEnd(m, quiet){
+  phase = 'break';
+  const w = m.standings[0], played = m.standings.some(t => t.active);
+  $('meTitle').textContent = played ? `🏆 ĐỘI ${w.name.toUpperCase()} THẮNG!` : `HẾT TRẬN ${m.no}`;
+  $('meSub').textContent = `Kết quả trận ${m.no} · xếp theo số bậc trung bình`;
+  const rows = $('meRows'); rows.replaceChildren();
+  m.standings.forEach((t, i) => {
+    const r = document.createElement('div'); r.className = 'mer'; r.style.setProperty('--tc', t.color);
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i];
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = 'Đội ' + t.name;
+    const sm = document.createElement('small'); sm.textContent = `${t.active}/${t.members} người chơi`;
+    const v = document.createElement('span'); v.className = 'v'; v.textContent = t.avg.toFixed(1) + ' bậc';
+    r.append(rk, nm, sm, v); rows.append(r);
+  });
+  $('meMvp').textContent = m.mvp ? `⭐ Leo cao nhất: ${m.mvp.name} (đội ${team.teams[m.mvp.team]?.name ?? ''}, bậc ${m.mvp.step})` : '';
+  const off = m.now - Date.now();
+  clearInterval(meTimer);
+  const tickNext = () => { const s = Math.max(0, Math.ceil((m.nextAt - (Date.now() + off)) / 1000)); $('meNext').textContent = `Trận mới bắt đầu sau ${s} giây · gõ tên đội để đổi đội`; if (!s) clearInterval(meTimer); };
+  tickNext(); meTimer = setInterval(tickNext, 500);
+  $('matchEnd').classList.add('show');
+  if (played && !quiet){ confetti(180); fanfare(3); }
+}
+function hideMatchEnd(){ $('matchEnd').classList.remove('show'); clearInterval(meTimer); }
+// Audience seats: the newest commenters, two staggered rows; the rest collapse into a "+n" seat.
+const audience = new Map();
+function renderAudience(total){
+  const box = $('stands'); box.querySelectorAll('.au').forEach(e => e.remove());
+  const n = total ?? audience.size, perRow = 20, cap = perRow * 2, list = [...audience.values()];
+  const shown = list.slice(-(n > cap ? cap - 1 : cap)).reverse();          // newest first
+  const seat = (i, el) => { const row = i < perRow ? 0 : 1, k = row ? i - perRow : i; el.style.left = (12 + k * 50.5 + row * 25) + 'px'; el.style.top = (row ? 92 : 36) + 'px'; box.append(el); };
+  shown.forEach((a, i) => {
+    const el = document.createElement('div'); el.className = 'au'; el.id = 'au_' + a.uid; el.title = a.name;
+    if (a.avatar){ const im = new Image(); im.referrerPolicy = 'no-referrer'; im.src = a.avatar; im.onerror = () => { im.remove(); el.textContent = (a.name || '?')[0].toUpperCase(); }; el.append(im); }
+    else el.textContent = (a.name || '?')[0].toUpperCase();
+    seat(i, el);
+  });
+  if (n > shown.length){ const el = document.createElement('div'); el.className = 'au more'; el.textContent = '+' + (n - shown.length); seat(shown.length, el); }
+  $('audHead').textContent = n ? `👀 KHÁN ĐÀI · ${n}` : '👀 KHÁN ĐÀI · bình luận để vào xem, gõ "tham gia" để chơi';
+}
+function onAud(m){ if (m.add) audience.set(m.add.uid, m.add); if (m.remove) audience.delete(m.remove); renderAudience(m.total); }
+
+// Lobby: who's still missing, or the countdown once every team has a player.
+let lobby = null;
+function lobbyText(){
+  const head = `PHÒNG CHỜ TRẬN ${lobby.no}\nGõ “tham gia” hoặc tên đội để vào`;
+  if (lobby.startsAt){ const s = Math.max(0, Math.ceil((lobby.startsAt - now()) / 1000)); return `${head}\n⏳ Bắt đầu sau ${s} giây`; }
+  return `${head}\nĐang chờ đội ${lobby.empty.join(', ')}`;
+}
+function showLobby(m){
+  setClock(m.now); lobby = m; hideMatchEnd();
+  idle(lobbyText()); phase = 'lobby'; $('qtext').style.fontSize = '40px';
+  updateHeads(m.teams);
+}
+setInterval(() => { if (phase === 'lobby' && lobby) $('qtext').textContent = lobbyText(); }, 250);
+setInterval(() => {
+  if (!isTeam()) return;
+  const el = $('clock');
+  if (!team.startedAt){ el.textContent = phase === 'lobby' ? '🚪 phòng chờ' : '⏳ chờ bắt đầu'; return; }
+  const left = Math.max(0, team.endsAt - now()), s = Math.ceil(left / 1000);
+  el.textContent = left ? `⏳ ${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : '⏳ câu cuối';
+}, 250);
+
+/* timer ring */
+const bar = document.querySelector('#timer .bar'), C = 301.6;
+setInterval(() => {
+  if (phase !== 'question' || !endsAt){ $('sec').textContent = '–'; bar.style.strokeDashoffset = 0; $('timer').className = ''; return; }
+  const left = Math.max(0, endsAt - now()), s = Math.ceil(left / 1000);
+  bar.style.strokeDashoffset = C * (1 - left / roundLen);
+  $('sec').textContent = s;
+  $('timer').className = s <= 5 ? 'hot' : s <= 10 ? 'warn' : '';
+  if (s !== lastSec){ lastSec = s; if (s <= 5 && s > 0) tick(); }
+}, 100);
+
+/* =========================== audio =========================== */
+// Music: whatever the streamer put in assets/music. Everything else is synthesized, no files.
+let AC = null, master = null, musicGain = null, sfx = null, musicEl = null, trackIdx = 0;
+$('unmute').onclick = e => { e.currentTarget.remove(); startAudio(); };
+function startAudio(){
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = .9; master.connect(AC.destination);
+  musicGain = AC.createGain(); musicGain.connect(master); sfx = AC.createGain(); sfx.connect(master);
+  applySettings(); nextTrack(); chime();
+}
+function nextTrack(){
+  if (!AC || !assets.music?.length) return;
+  if (musicEl) musicEl.pause();
+  musicEl = new Audio(assets.music[trackIdx++ % assets.music.length]);
+  AC.createMediaElementSource(musicEl).connect(musicGain);
+  musicEl.onended = nextTrack; musicEl.onerror = () => setTimeout(nextTrack, 2000); musicEl.play().catch(() => {});
+}
+function duck(on){ if (!musicGain) return; const t = AC.currentTime, base = settings.music ? (settings.musicVol ?? 35) / 100 : 0;
+  musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value, t); musicGain.gain.linearRampToValueAtTime(on ? base * .3 : base, t + .3); }
+function tone(f, type, a, d, when = 0, slide){
+  if (!AC) return; const t = AC.currentTime + when, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .01); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+  o.connect(g); g.connect(sfx); o.start(t); o.stop(t + d + .05);
+}
+const tick = () => tone(1400, 'square', .06, .05);
+const ding = big => { tone(big ? 1046 : 880, 'sine', .3, .5); tone(big ? 1568 : 1320, 'sine', .18, .6, .07); };
+const chime = () => [523, 659, 784, 1046].forEach((f, i) => tone(f, 'triangle', .22, .7, i * .09));
+const fanfare = tier => { const n = [392, 523, 659, 784, 1046].slice(0, 2 + tier); n.forEach((f, i) => tone(f, 'sawtooth', .07, .35, i * .1)); n.forEach((f, i) => tone(f * 2, 'sine', .1, .5, i * .1)); };
+// server voice lines, one after another; dropped while sound is still off so they don't pile up
+const ttsQ = []; let ttsPlaying = false;
+function queueTTS(url){ if (!AC) return; if (ttsQ.length > 6) ttsQ.shift(); ttsQ.push(url); playTTS(); }
+function playTTS(){
+  if (ttsPlaying || !ttsQ.length) return; ttsPlaying = true;
+  const el = new Audio(ttsQ.shift()), g = AC.createGain(); g.gain.value = 1.3;
+  AC.createMediaElementSource(el).connect(g); g.connect(master);
+  const done = () => { duck(false); ttsPlaying = false; setTimeout(playTTS, 250); };
+  el.onplay = () => duck(true); el.onended = done; el.onerror = done;
+  el.play().catch(done);
+}
+
+/* =========================== particles =========================== */
+const cv = $('fx'), ctx = cv.getContext('2d'), parts = [];
+const COLORS = ['#ffc94a', '#ff4d6d', '#5ce1ff', '#3ee08f', '#c77dff', '#fff'];
+function confetti(n){ for (let i = 0; i < n; i++) parts.push({ x: 540 + (Math.random() - .5) * 900, y: 160 + Math.random() * 200, vx: (Math.random() - .5) * 260, vy: 100 + Math.random() * 300,
+  r: Math.random() * 6.3, vr: (Math.random() - .5) * 10, w: 12 + Math.random() * 10, h: 6 + Math.random() * 8, c: COLORS[i % COLORS.length], life: 3 + Math.random() * 2, t: 0, kind: 'c' }); }
+function burst(x, y, n){ for (let i = 0; i < n; i++){ const a = Math.random() * 6.3, v = 200 + Math.random() * 400; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .9, t: 0, c: COLORS[i % COLORS.length], kind: 's', s: 4 + Math.random() * 5 }); } }
+function hearts(n){ for (let i = 0; i < n; i++) parts.push({ x: 940 + (Math.random() - .5) * 120, y: 1260, vx: (Math.random() - .5) * 60, vy: -(180 + Math.random() * 160), life: 2.2, t: 0, kind: 'h', s: 30 + Math.random() * 24 }); }
+let last = performance.now();
+(function loop(t){
+  requestAnimationFrame(loop); const dt = Math.min(.05, (t - last) / 1000); last = t;
+  ctx.clearRect(0, 0, 1080, 1920);
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i]; p.t += dt; if (p.t > p.life){ parts.splice(i, 1); continue; }
+    const a = Math.min(1, (p.life - p.t) * 2);
+    if (p.kind === 'c'){ p.vy += 260 * dt; p.vx *= .99; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2))); ctx.restore(); }
+    else if (p.kind === 's'){ p.vx *= .92; p.vy *= .92; p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.globalAlpha = a; ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.3); ctx.fill(); ctx.globalAlpha = 1; }
+    else { p.x += (p.vx + Math.sin(p.t * 4 + i) * 40) * dt; p.y += p.vy * dt;
+      ctx.globalAlpha = a; ctx.fillStyle = '#ff4d8d'; ctx.font = `${p.s}px serif`; ctx.textAlign = 'center'; ctx.fillText('♥', p.x, p.y); ctx.globalAlpha = 1; }
+  }
+})(last);
+
+/* =========================== server link =========================== */
+function connect(){
+  const ws = new WebSocket(`ws://${location.host}/ws?role=overlay`), st = $('conn');
+  ws.onopen = () => { st.textContent = ''; };
+  ws.onclose = () => { st.textContent = 'mất kết nối server… đang thử lại'; setTimeout(connect, 2000); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    switch (m.t){
+      case 'state': setClock(m.now); settings = m.settings; applySettings(); applyAssets(m.assets); hideMatchEnd();
+        if (m.match) setTeams(m.match);
+        audience.clear(); for (const a of m.audience || []) audience.set(a.uid, a); renderAudience();
+        if (m.matchEnd){ idle(' '); showMatchEnd(m.matchEnd, true); break; }
+        if (m.lobby){ showLobby(m.lobby); break; }
+        if (m.round){ showQuestion(m.round); m.correct.forEach(c => addWinner(c, true)); if (m.tcount) setTcount(m.tcount); }
+        else if (m.reveal){ showQuestion(m.reveal); m.reveal.winners.forEach((c, rank) => addWinner({ ...c, rank }, true)); reveal(m.reveal, true); }
+        else if (m.phase === 'board'){ idle(' '); showBoard(m.top); }
+        else idle(m.running ? 'Câu hỏi tiếp theo sắp tới…' : null);
+        break;
+      case 'settings': settings = m.settings; applySettings(); if (phase === 'idle') idle(); break;
+      case 'question': setClock(m.now); hideMatchEnd(); showQuestion(m); break;
+      case 'teams': setTeams(m.match); hideMatchEnd(); break;
+      case 'tjoin': onJoin(m); break;
+      case 'tcount': setTcount(m); break;
+      case 'climb': onClimb(m); break;
+      case 'matchEnd': setClock(m.now); showMatchEnd(m); break;
+      case 'endsAt': setClock(m.now); endsAt = m.endsAt; break;
+      case 'hint': setHint(m.hint); break;
+      case 'correct': addWinner(m); break;
+      case 'guess': guess(m); break;
+      case 'nudge': guess({ text: m.text }, 'nudge', 5000); break;
+      case 'chat': chatBubble(m); break;
+      case 'lobby': showLobby(m); break;
+      case 'aud': onAud(m); break;
+      case 'reveal': reveal(m); break;
+      case 'leaderboard': showBoard(m.top); break;
+      case 'idle': idle(); break;
+      case 'gift': showGift(m); break;
+      case 'like': hearts(m.n); break;
+      case 'tts': queueTTS(m.url); break;
+    }
+  };
+}
+if (window.obsstudio){ $('unmute').remove(); startAudio(); }   // OBS browser source allows autoplay; no button on stream
+connect();
+</script>
+</body>
+</html>

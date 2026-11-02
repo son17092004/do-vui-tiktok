@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng điều khiển · Đố Vui LIVE</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: status bar, then cards in auto-fit columns (game · questions · settings · test), log at the bottom; one column on narrow windows. */
+:root{
+  --bg:#0f0a1f; --card:#1a1233; --card2:#241a45; --fg:#f1ecff; --muted:#a99cc9; --line:#3a2d66;
+  --gold:#ffc94a; --green:#2fae6e; --red:#c73a55; --cyan:#5ce1ff; --body:"Be Vietnam Pro",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--body);padding:18px 16px 30px}
+header{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:22px;margin:0;color:var(--gold);font-weight:800}
+.status{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+.chip.ok{border-color:var(--green);color:#9ff0c4}.chip.bad{border-color:var(--red);color:#ffb0c0}.chip.warn{border-color:var(--gold);color:#ffe29a}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;min-width:0}
+.card h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+.card h3{margin:6px 0 0;font-size:13px;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:12px;margin:0}
+.hint code{background:var(--card2);padding:1px 5px;border-radius:4px;color:var(--fg)}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>*{flex:1 1 auto}
+.row>label{flex:1 1 90px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg)}
+.check input{width:auto}
+button{font:600 13px var(--body);color:var(--fg);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--gold)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button.primary{background:var(--green);border-color:var(--green)}
+button.red{background:var(--red);border-color:var(--red)}
+button.gold{background:var(--gold);border-color:var(--gold);color:#2a1600}
+#hostBox{background:#120c27;border:1px dashed var(--line);border-radius:10px;padding:12px;display:grid;gap:6px}
+#hostQ{font-size:16px;font-weight:600}
+#hostA{font-size:20px;font-weight:800;color:#9ff0c4}
+#hostAlt,#hostSrc{font-size:12px;color:var(--muted)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
+#scores,#teamTable{width:100%;border-collapse:collapse;font-size:13px}
+#scores td,#teamTable td{padding:5px 6px;border-bottom:1px solid #2a2050}
+#scores td:last-child,#teamTable td:last-child{text-align:right;color:var(--gold);font-variant-numeric:tabular-nums}
+#log{height:240px;overflow:auto;background:#0a0716;border:1px solid var(--line);border-radius:10px;padding:8px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+ol.steps{margin:0;padding-left:18px;color:var(--muted);font-size:12px;display:grid;gap:3px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Đố Vui LIVE · Bảng điều khiển</h1>
+  <div class="status">
+    <span class="chip" id="srv">Server: …</span>
+    <span class="chip" id="tt">TikTok: chưa kết nối</span>
+    <span class="chip" id="gameChip">Đang dừng</span>
+  </div>
+</header>
+
+<div class="grid">
+  <section class="card">
+    <h2>1 · Kết nối & trò chơi</h2>
+    <label for="uid">Username kênh đang live</label>
+    <div class="row"><input id="uid" placeholder="@tenkenhcuaban" autocomplete="off"><button class="primary" id="btnConnect">Kết nối</button><button id="btnDisconnect">Ngắt</button></div>
+    <button class="gold" id="btnOverlay">Mở màn hình overlay 9:16</button>
+    <p class="hint">LIVE Studio: Add source → Window capture → cửa sổ overlay, rồi thêm nguồn âm thanh của ứng dụng. OBS: Browser source <code>http://localhost:3100/overlay</code>, 1080×1920, tích "Control audio via OBS". Bấm "bật âm thanh" một lần trong overlay.</p>
+    <label>Chế độ chơi<select id="mode"><option value="solo">Cá nhân: ai nhanh nhất được nhiều điểm</option><option value="team">Đội leo bậc: đúng +1 bậc, chia đội</option></select></label>
+    <div class="row"><button class="primary" id="btnStart">▶ Bắt đầu</button><button id="btnStop">⏸ Dừng sau câu này</button><button id="btnSkip">⏭ Bỏ qua câu</button></div>
+    <div id="hostBox" aria-live="polite">
+      <div id="hostSrc">Chưa có câu hỏi</div>
+      <div id="hostQ">–</div>
+      <div id="hostA"></div>
+      <div id="hostAlt"></div>
+    </div>
+    <p class="hint">Đáp án chỉ hiện ở đây, không hiện trên overlay. Đừng chia sẻ màn hình này lên live.</p>
+    <h3>Bảng điểm hôm nay</h3>
+    <table id="scores"><tbody id="scoresBody"><tr><td class="hint">Chưa có ai</td><td></td></tr></tbody></table>
+    <div class="row"><button class="red" id="btnResetScores">Xóa bảng điểm hôm nay</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Nguồn câu hỏi</h2>
+    <dl>
+      <dt>Đang dùng</dt><dd id="bankSrc">–</dd>
+      <dt>Số câu</dt><dd id="bankTotal">–</dd>
+      <dt>Chưa hỏi gần đây</dt><dd id="bankFresh">–</dd>
+      <dt>Trạng thái Sheet</dt><dd id="bankStatus">–</dd>
+      <dt>Gemini</dt><dd id="gemState">–</dd>
+      <dt>Câu Gemini chờ sẵn</dt><dd id="gemPool">–</dd>
+    </dl>
+    <p class="hint" id="bankErrors"></p>
+    <label for="sheetUrl">Link Google Sheet</label>
+    <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…/edit" autocomplete="off">
+    <ol class="steps">
+      <li>Dòng 1 là tiêu đề: <code>Câu hỏi</code>, <code>Đáp án</code>, <code>Đáp án khác</code>, <code>Chủ đề</code>, <code>Độ khó</code>, <code>Gợi ý</code>. Chỉ hai cột đầu là bắt buộc.</li>
+      <li>Nhiều đáp án khác thì ngăn cách bằng <code>|</code>, ví dụ <code>Sài Gòn|TPHCM|SG</code>.</li>
+      <li>Chia sẻ → "Bất kỳ ai có đường liên kết" → Người xem. Dán link vào ô trên.</li>
+      <li>Server tự tải lại mỗi 5 phút. Sửa Sheet xong muốn dùng ngay thì bấm "Tải lại".</li>
+    </ol>
+    <div class="row"><button id="btnReload">⟳ Tải lại Sheet</button><button id="btnGemini">🤖 Cho Gemini tạo thử</button></div>
+    <label>Hỏi lại một câu sau (phút)<input id="repeatAfterMin" type="number" min="10" max="1440"></label>
+    <label class="check"><input type="checkbox" id="geminiEnabled"> Dùng Gemini khi hết câu mới trong Sheet</label>
+    <label class="check"><input type="checkbox" id="geminiVerify"> Gemini tự kiểm tra lại đáp án (chậm hơn, ít sai hơn)</label>
+    <label for="geminiTopics">Chủ đề cho Gemini</label>
+    <textarea id="geminiTopics"></textarea>
+    <p class="hint">Câu Gemini tạo được lưu vào <code>data/gemini-cau-hoi.csv</code>. Câu nào hay thì chép vào Sheet.</p>
+    <div class="row"><button id="btnResetHistory">Quên lịch sử đã hỏi</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Đội leo bậc</h2>
+    <table id="teamTable"><tbody id="teamBody"><tr><td class="hint">Chưa bật chế độ đội</td></tr></tbody></table>
+    <p class="hint" id="matchInfo"></p>
+    <div class="row"><button id="btnEndMatch">🏁 Kết thúc trận sau câu này</button><button class="red" id="btnClearTeams">Xóa danh sách đội</button></div>
+    <div class="row">
+      <label>Số đội<select id="teamCount"><option value="2">2 đội</option><option value="3">3 đội</option></select></label>
+      <label>Tên đội (ngăn bằng |)<input id="teamNames" placeholder="Đỏ|Xanh|Vàng"></label>
+    </div>
+    <div class="row">
+      <label>Mỗi trận (phút)<input id="matchMin" type="number" min="3" max="60"></label>
+      <label>Mỗi câu (giây)<input id="teamQuestionSec" type="number" min="15" max="120"></label>
+    </div>
+    <div class="row">
+      <label>Số bậc lên đỉnh<input id="stairSteps" type="number" min="5" max="25"></label>
+      <label>Tối đa mỗi đội (người)<input id="teamMax" type="number" min="1" max="200"></label>
+      <label>Nghỉ giữa 2 trận (giây)<input id="breakSec" type="number" min="10" max="300"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="wrongStepDown"> Trả lời sai thì tụt 1 bậc</label>
+    <label>Phòng chờ: đếm ngược khi đủ người (giây)<input id="lobbySec" type="number" min="5" max="120"></label>
+    <h3>Chat</h3>
+    <label class="check"><input type="checkbox" id="chatEnabled"> Cho người xem gõ <code>/chat lời nhắn</code> để hiện bong bóng lên màn hình</label>
+    <label>Mỗi người chat cách nhau (giây)<input id="chatCooldownSec" type="number" min="0" max="300"></label>
+    <p class="hint"><b>Vào đội:</b> người xem gõ <code>tham gia</code> (vào đội ít người nhất) hoặc tên đội / số <code>1</code> <code>2</code> <code>3</code>. Đội còn chỗ thì vào lúc nào cũng được, kể cả giữa trận (bắt đầu từ bậc 0). Đội đủ người thì người xin vào ở lại khán đài.<br>
+    <b>Khán đài:</b> ai bình luận mà chưa vào đội thì hiện ở khán đài dưới cầu thang. Chỉ người trong đội mới được tính câu trả lời.<br>
+    <b>Phòng chờ:</b> bấm Bắt đầu thì mở phòng chờ. Mỗi đội có ít nhất 1 người thì đếm ngược rồi vào câu đầu. Trước trận đổi đội thoải mái. Trong trận chỉ đổi 1 lần, về bậc 0, và người cuối cùng không được bỏ đội.<br>
+    <b>Trả lời:</b> mỗi câu 1 lần. Câu chuyện phiếm ("hay quá", "chào cả nhà", câu dài) không tính là sai. Đội xếp theo bậc trung bình của người đã trả lời. Quà chỉ có hiệu ứng.<br>
+    <b>Chat:</b> <code>/chat đội bạn gà lắm</code> hiện bong bóng trên avatar. Từ tục bị che ***, link bị xóa, không đọc thành tiếng.</p>
+  </section>
+
+  <section class="card">
+    <h2>3 · Luật chơi · Giọng · Âm thanh</h2>
+    <div class="row">
+      <label>Thời gian mỗi câu (giây)<input id="roundSec" type="number" min="10" max="90"></label>
+      <label>Hiện gợi ý ở giây (0 = tắt)<input id="hintAtSec" type="number" min="0" max="90"></label>
+    </div>
+    <div class="row">
+      <label>Sau người đúng đầu tiên còn (giây)<input id="graceSec" type="number" min="0" max="15"></label>
+      <label>Hiện đáp án (giây)<input id="revealSec" type="number" min="3" max="20"></label>
+      <label>Hiện bảng vàng (giây)<input id="gapSec" type="number" min="2" max="30"></label>
+    </div>
+    <p class="hint">Điểm: nhanh nhất 10, thứ hai 7, thứ ba 5, đúng sau đó 3. Mỗi người tối đa 6 lần đoán mỗi câu.</p>
+    <label class="check"><input type="checkbox" id="giftBoost"> Tặng quà được nhân điểm 10 phút (×2, quà từ 99 kim cương ×3)</label>
+    <label class="check"><input type="checkbox" id="showGuesses"> Hiện các câu đoán sai trên overlay</label>
+    <h3>Giọng đọc</h3>
+    <div class="row">
+      <label>Giọng<select id="voice"><option value="vi-VN-HoaiMyNeural">Hoài My (nữ)</option><option value="vi-VN-NamMinhNeural">Nam Minh (nam)</option></select></label>
+      <label>Cao độ (Hz)<input id="pitch" type="number" min="-50" max="50"></label>
+      <label>Tốc độ (%)<input id="rate" type="number" min="-50" max="50"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="readQuestion"> Đọc to câu hỏi</label>
+    <label for="sayText">Phát thông báo lên live</label>
+    <textarea id="sayText">Chào mừng mọi người đến với Đố Vui! Gõ đáp án vào bình luận, ai nhanh nhất được nhiều điểm nhất nhé.</textarea>
+    <button id="btnSay">📢 Đọc lên live</button>
+    <h3>Nhạc nền & cảnh</h3>
+    <label class="check"><input type="checkbox" id="music"> Phát nhạc nền (file trong <code>assets/music/</code>)</label>
+    <label>Âm lượng nhạc (%)<input id="musicVol" type="number" min="0" max="100"></label>
+    <label>Tiêu đề<input id="title"></label>
+    <label>Dòng phụ<input id="subtitle"></label>
+  </section>
+
+  <section class="card">
+    <h2>4 · Thử khi chưa live</h2>
+    <label for="simName">Tên người xem</label>
+    <input id="simName" value="Minh An">
+    <label for="simText">Bình luận (đáp án)</label>
+    <div class="row"><input id="simText" placeholder="gõ đáp án…"><button id="btnAnswer">Gửi</button></div>
+    <div class="row">
+      <button data-gift="Hoa hồng" data-dia="1">🌹 Hoa hồng · 1</button>
+      <button data-gift="Mũ len" data-dia="20">🧢 Mũ · 20</button>
+      <button data-gift="Sư tử" data-dia="299">🦁 Sư tử · 299</button>
+    </div>
+    <h3>Bot trả lời mô phỏng</h3>
+    <div class="row">
+      <label>Số bot<input id="botN" type="number" min="1" max="60" value="12"></label>
+      <button id="btnBots">Bật bot</button>
+    </div>
+    <p class="hint">Bot trả lời đúng khoảng 40% và thỉnh thoảng tặng quà, chỉ để xem thử overlay. Nhớ tắt bot trước khi live thật.</p>
+  </section>
+</div>
+
+<section class="card" style="margin-top:16px">
+  <h2>Nhật ký</h2>
+  <div id="log" aria-live="polite"></div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+let ws = null, bots = 0;
+const send = (cmd, extra = {}) => ws?.readyState === 1 && ws.send(JSON.stringify({ t:'ctl', cmd, ...extra }));
+function logLine(s){ const el = $('log'), stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 20; el.textContent += s + '\n'; if (stick) el.scrollTop = el.scrollHeight; }
+
+const SETTING_IDS = ['sheetUrl','repeatAfterMin','geminiEnabled','geminiVerify','geminiTopics','roundSec','hintAtSec','graceSec','revealSec','gapSec',
+  'giftBoost','showGuesses','voice','pitch','rate','readQuestion','music','musicVol','title','subtitle',
+  'mode','teamCount','teamNames','matchMin','teamQuestionSec','stairSteps','breakSec','wrongStepDown','teamMax','lobbySec','chatEnabled','chatCooldownSec'];
+function fillSettings(s){ for (const k of SETTING_IDS){ const el = $(k); if (!el || s[k] === undefined || el === document.activeElement) continue; if (el.type === 'checkbox') el.checked = !!s[k]; else el.value = s[k]; } }
+function readSettings(){ const o = {}; for (const k of SETTING_IDS){ const el = $(k); o[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? +el.value : el.value; } return o; }
+
+function setTT(st){
+  const el = $('tt'); el.className = 'chip ' + (st.status === 'connected' ? 'ok' : st.status === 'error' || st.status === 'disconnected' ? 'bad' : '');
+  el.textContent = st.status === 'connected' ? `TikTok: @${st.uniqueId} ✓` : st.status === 'connecting' ? `TikTok: đang kết nối @${st.uniqueId}…`
+    : st.status === 'error' ? 'TikTok: lỗi kết nối' : st.status === 'disconnected' ? 'TikTok: mất kết nối' : 'TikTok: chưa kết nối';
+}
+function setRunning(on){ const c = $('gameChip'); c.textContent = on ? 'Đang chơi' : 'Đang dừng'; c.className = 'chip ' + (on ? 'ok' : ''); }
+function setBank(b){
+  $('bankSrc').textContent = b.source || '–'; $('bankTotal').textContent = b.total ?? '–'; $('bankFresh').textContent = b.fresh ?? '–';
+  $('bankStatus').textContent = b.status || '–'; $('gemState').textContent = b.gemini || '–'; $('gemPool').textContent = b.geminiPool ?? 0;
+  $('bankErrors').textContent = b.errors?.length ? 'Dòng bị bỏ qua: ' + b.errors.slice(0, 5).join(' · ') + (b.errors.length > 5 ? ` · và ${b.errors.length - 5} dòng nữa` : '') : '';
+}
+const SRC = { sheet: '📄 Google Sheet', gemini: '🤖 Gemini', 'sheet-lap-lai': '🔁 Sheet (lặp lại)' };
+function setHost(h){
+  $('hostSrc').textContent = `Câu ${h.no} · ${SRC[h.source] || h.source}${h.row ? ' · dòng ' + h.row : ''}`;
+  $('hostQ').textContent = h.q; $('hostA').textContent = '✔ ' + h.a;
+  $('hostAlt').textContent = h.alt?.length ? 'Cũng tính đúng: ' + h.alt.join(', ') : '';
+}
+function setScores(list){
+  const tb = $('scoresBody'); tb.replaceChildren();
+  if (!list.length){ const tr = document.createElement('tr'); const td = document.createElement('td'); td.className = 'hint'; td.textContent = 'Chưa có ai'; tr.append(td, document.createElement('td')); tb.append(tr); return; }
+  list.forEach((p, i) => { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = `${i + 1}. ${p.name}${p.boost ? ' 🎁' : ''}`; const b = document.createElement('td'); b.textContent = p.score; tr.append(a, b); tb.append(tr); });
+}
+let teamStats = [], matchMeta = null;
+function setTeamTable(stats){
+  if (stats) teamStats = stats;
+  const tb = $('teamBody'); tb.replaceChildren();
+  if (!teamStats.length){ const tr = document.createElement('tr'); const td = document.createElement('td'); td.className = 'hint'; td.textContent = 'Chưa bật chế độ đội'; tr.append(td); tb.append(tr); return; }
+  for (const t of [...teamStats].sort((a, b) => b.avg - a.avg)){
+    const tr = document.createElement('tr');
+    const a = document.createElement('td'); a.textContent = '● Đội ' + t.name; a.style.color = t.color;
+    const b = document.createElement('td'); b.textContent = `${t.active}/${t.members} người · cao nhất bậc ${t.best}`; b.className = 'hint';
+    const c = document.createElement('td'); c.textContent = 'TB ' + t.avg.toFixed(1);
+    tr.append(a, b, c); tb.append(tr);
+  }
+}
+setInterval(() => {
+  if (!matchMeta) return;
+  const el = $('matchInfo');
+  if (!matchMeta.startedAt){ el.textContent = `Trận ${matchMeta.no}: chờ bắt đầu · ${matchMeta.steps} bậc`; return; }
+  const s = Math.max(0, Math.ceil((matchMeta.endsAt - Date.now()) / 1000));
+  el.textContent = `Trận ${matchMeta.no} · ${matchMeta.steps} bậc · ` + (s ? `còn ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'đang câu cuối');
+}, 500);
+function setBots(n){ bots = n; $('btnBots').textContent = n ? `Tắt bot (${n})` : 'Bật bot'; }
+
+function connect(){
+  ws = new WebSocket(`ws://${location.host}/ws?role=control`);
+  ws.onopen = () => { $('srv').textContent = 'Server: đang chạy'; $('srv').className = 'chip ok'; };
+  ws.onclose = () => { $('srv').textContent = 'Server: mất kết nối'; $('srv').className = 'chip bad'; setTimeout(connect, 2000); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    switch (m.t){
+      case 'state': fillSettings(m.settings); setTT(m.tiktok); setRunning(m.running); setScores(m.top); if (m.match){ matchMeta = m.match; setTeamTable(m.match.teams); } break;
+      case 'teams': matchMeta = m.match; setTeamTable(m.match.teams); break;
+      case 'tjoin': case 'climb': setTeamTable(m.teams); break;
+      case 'matchEnd': setTeamTable(m.standings); matchMeta = null; $('matchInfo').textContent = `Hết trận ${m.no} · nghỉ giữa trận`; break;
+      case 'settings': fillSettings(m.settings); break;
+      case 'logs': $('log').textContent = ''; m.lines.forEach(logLine); break;
+      case 'log': logLine(m.line); break;
+      case 'tiktok': setTT(m); break;
+      case 'bank': setBank(m); break;
+      case 'host': setHost(m); break;
+      case 'running': setRunning(m.on); break;
+      case 'board': case 'leaderboard': setScores(m.top); break;
+      case 'bots': setBots(m.n); break;
+    }
+  };
+}
+connect();
+
+$('btnConnect').onclick = () => send('connect', { uniqueId: $('uid').value });
+$('uid').onkeydown = e => { if (e.key === 'Enter') send('connect', { uniqueId: $('uid').value }); };
+$('btnDisconnect').onclick = () => send('disconnect');
+$('btnOverlay').onclick = () => window.open('/overlay', 'dovui916', 'width=540,height=960');
+$('btnStart').onclick = () => send('start');
+$('btnStop').onclick = () => send('stop');
+$('btnSkip').onclick = () => send('skip');
+$('btnReload').onclick = () => send('reload');
+$('btnGemini').onclick = () => send('geminiTest');
+$('btnResetHistory').onclick = () => confirm('Quên lịch sử để hỏi lại mọi câu từ đầu Sheet?') && send('resetHistory');
+$('btnResetScores').onclick = () => confirm('Xóa toàn bộ bảng điểm hôm nay?') && send('resetScores');
+$('btnEndMatch').onclick = () => send('endMatch');
+$('btnClearTeams').onclick = () => confirm('Xóa toàn bộ thành viên các đội và làm lại trận từ đầu?') && send('clearTeams');
+$('btnSay').onclick = () => send('say', { text: $('sayText').value });
+const sendAnswer = () => { send('answer', { name: $('simName').value, text: $('simText').value }); $('simText').select(); };
+$('btnAnswer').onclick = sendAnswer;
+$('simText').onkeydown = e => { if (e.key === 'Enter') sendAnswer(); };
+document.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => send('gift', { name: $('simName').value, gift: b.dataset.gift, diamonds: +b.dataset.dia, count: 1 }));
+$('btnBots').onclick = () => send('bots', { on: !bots, n: +$('botN').value });
+for (const k of SETTING_IDS) $(k).addEventListener('change', () => send('settings', { settings: readSettings() }));
+</script>
+</body>
+</html>
